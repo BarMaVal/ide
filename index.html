@@ -1,4 +1,19 @@
-<!DOCTYPE html>
+
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                body {
+                  background-color: white; /* Ensure the iframe has a white background */
+                }
+
+                
+              </style>
+                        </head>
+                        <body>
+                            <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -263,6 +278,17 @@
 
         .btn-demo:hover { background: var(--bg-hover); }
 
+        .btn-slow {
+            background: var(--warning);
+            color: #1e1e1e;
+            border-color: var(--warning);
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .btn-slow:hover { background: #e6c84a; }
+
         .step-counter {
             margin-left: auto;
             font-size: 0.82rem;
@@ -492,7 +518,7 @@
         }
 
         .progress-bar {
-            height: 3px;
+            height: 4px;
             background: var(--bg-tertiary);
             width: 100%;
             overflow: hidden;
@@ -526,7 +552,7 @@
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 28px 36px;
-            max-width: 600px;
+            max-width: 650px;
             width: 100%;
             box-shadow: var(--shadow);
         }
@@ -557,7 +583,7 @@
             color: var(--error);
             text-align: left;
             word-break: break-all;
-            max-height: 120px;
+            max-height: 150px;
             overflow-y: auto;
         }
 
@@ -602,6 +628,32 @@
         }
 
         .protocol-warning li { margin-bottom: 4px; }
+
+        .load-log {
+            background: var(--console-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 16px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-align: left;
+            max-height: 180px;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+
+        .load-log .log-entry {
+            padding: 2px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .load-log .log-entry:last-child {
+            border-bottom: none;
+            color: var(--accent);
+            font-weight: 600;
+        }
 
         .status-bar {
             position: fixed;
@@ -681,6 +733,7 @@
         <div class="loading-overlay-content">
             <h3 id="overlayTitle">⚠️ Проблема с загрузкой Python</h3>
             <div id="overlayBody"></div>
+            <div class="load-log" id="loadLog" style="display:none;"></div>
             <div class="error-details" id="overlayErrorDetails" style="display:none;"></div>
             <div class="loading-overlay-actions" id="overlayActions"></div>
         </div>
@@ -690,7 +743,7 @@
         <div class="editor-section">
             <div class="toolbar">
                 <select class="examples-select" id="examplesSelect" title="Выберите пример кода">
-                    <option value="">📚 Примеры кода...</option>
+                    <option value=""> Примеры кода...</option>
                     <option value="for_sum">Цикл for с суммой</option>
                     <option value="function">Функция с локальными переменными</option>
                     <option value="list">Работа со списком</option>
@@ -745,7 +798,7 @@
     <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/selection/active-line.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/matchbrackets.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
     <script>
         // ==================== GLOBAL STATE ====================
         let pyodide = null;
@@ -758,8 +811,10 @@
         let expandedVars = new Set();
         let pyodideReady = false;
         let loadAttempts = 0;
-        const MAX_LOAD_ATTEMPTS = 2;
-        const LOAD_TIMEOUT_MS = 60000;
+        const MAX_LOAD_ATTEMPTS = 5;
+        const LOAD_TIMEOUT_MS = 180000; // 3 минуты — Pyodide весит ~50-100 МБ
+        const SLOW_LOAD_TIMEOUT_MS = 300000; // 5 минут для медленного интернета
+        let loadLogEntries = [];
 
         function isFileProtocol() {
             return window.location.protocol === 'file:';
@@ -854,7 +909,7 @@ print(result)`
             });
         }
 
-        // ==================== PYODIDE INIT ====================
+        // ==================== PYODIDE INIT (УЛУЧШЕННАЯ ВЕРСИЯ) ====================
         function checkWebAssemblySupport() {
             try {
                 return typeof WebAssembly !== 'undefined' &&
@@ -862,6 +917,26 @@ print(result)`
             } catch (e) {
                 return false;
             }
+        }
+
+        function addLoadLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            loadLogEntries.push(`[${timestamp}] ${message}`);
+            console.log('[Pyodide]', message);
+            updateLoadLogUI();
+        }
+
+        function updateLoadLogUI() {
+            const logEl = document.getElementById('loadLog');
+            if (loadLogEntries.length === 0) {
+                logEl.style.display = 'none';
+                return;
+            }
+            logEl.style.display = 'block';
+            logEl.innerHTML = loadLogEntries.map(entry =>
+                '<div class="log-entry">' + entry + '</div>'
+            ).join('');
+            logEl.scrollTop = logEl.scrollHeight;
         }
 
         function updateLoadingUI(state, message, progress) {
@@ -872,7 +947,7 @@ print(result)`
             if (state === 'loading') {
                 indicator.style.display = 'flex';
                 loadingText.textContent = message || 'Загрузка Python...';
-                progressBar.style.width = `${typeof progress === 'number' ? Math.min(95, progress) : 30}%`;
+                progressBar.style.width = `${typeof progress === 'number' ? Math.min(95, progress) : 20}%`;
             } else if (state === 'ready') {
                 indicator.style.display = 'none';
                 progressBar.style.width = '100%';
@@ -882,6 +957,67 @@ print(result)`
                 loadingText.innerHTML = '<span style="color: var(--error)">❌ Ошибка</span>';
                 progressBar.style.width = '0%';
             }
+        }
+
+        function showTimeoutOverlay(isSlowMode) {
+            const body = document.getElementById('overlayBody');
+            const timeoutSec = isSlowMode ? 300 : 180;
+            const timeoutMin = isSlowMode ? 5 : 3;
+
+            body.innerHTML = `
+                <div class="protocol-warning">
+                    <h4>⏱ Таймаут загрузки Pyodide (${timeoutMin} мин)</h4>
+                    <p>Pyodide весит ~50-100 МБ и загружается с CDN. На медленном интернете это может занять много времени.</p>
+                    <p><strong>Возможные причины:</strong></p>
+                    <ul style="margin-left: 20px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 10px;">
+                        <li>Медленное интернет-соединение</li>
+                        <li>CDN jsdelivr.net заблокирован или медленно работает в вашем регионе</li>
+                        <li>Браузер блокирует загрузку больших файлов</li>
+                        <li>GitHub Pages + CDN = двойная задержка</li>
+                    </ul>
+                </div>
+                <p><strong>Что можно сделать:</strong></p>
+                <ol style="margin-left: 20px; color: var(--text-primary); line-height: 1.7; margin-bottom: 14px;">
+                    <li>Подождать и нажать "Повторить загрузку"</li>
+                    <li>Использовать "Медленная загрузка" (таймаут ${timeoutMin} сек)</li>
+                    <li>Проверить интернет-соединение</li>
+                    <li>Попробовать другой браузер (Chrome/Firefox)</li>
+                    <li>Отключить VPN/прокси если есть</li>
+                </ol>
+            `;
+
+            const actions = document.getElementById('overlayActions');
+            if (isSlowMode) {
+                actions.innerHTML = `
+                    <button class="btn btn-demo" id="btnDemoMode3">▶ Демо-режим</button>
+                    <button class="btn btn-retry" id="btnRetryLoad3">🔄 Повторить загрузку</button>
+                `;
+                document.getElementById('btnDemoMode3').addEventListener('click', enableDemoMode);
+                document.getElementById('btnRetryLoad3').addEventListener('click', () => {
+                    hideLoadingOverlay();
+                    loadAttempts = 0;
+                    initPyodide(false);
+                });
+            } else {
+                actions.innerHTML = `
+                    <button class="btn btn-demo" id="btnDemoMode4">▶ Демо-режим</button>
+                    <button class="btn btn-retry" id="btnRetryLoad4">🔄 Повторить загрузку</button>
+                    <button class="btn btn-slow" id="btnSlowLoad"> Медленная загрузка (5 мин)</button>
+                `;
+                document.getElementById('btnDemoMode4').addEventListener('click', enableDemoMode);
+                document.getElementById('btnRetryLoad4').addEventListener('click', () => {
+                    hideLoadingOverlay();
+                    loadAttempts = 0;
+                    initPyodide(false);
+                });
+                document.getElementById('btnSlowLoad').addEventListener('click', () => {
+                    hideLoadingOverlay();
+                    loadAttempts = 0;
+                    initPyodide(true);
+                });
+            }
+
+            document.getElementById('loadingOverlay').classList.add('visible');
         }
 
         function showFileProtocolWarning() {
@@ -912,42 +1048,8 @@ print(result)`
             document.getElementById('btnRetryLoad').addEventListener('click', () => {
                 hideLoadingOverlay();
                 loadAttempts = 0;
-                initPyodide();
+                initPyodide(false);
             });
-
-            document.getElementById('loadingOverlay').classList.add('visible');
-        }
-
-        function showLoadErrorOverlay(errorMsg) {
-            const body = document.getElementById('overlayBody');
-            body.innerHTML = `
-                <p>Pyodide не загрузился после ${MAX_LOAD_ATTEMPTS} попыток.</p>
-                <p><strong>Возможные причины:</strong></p>
-                <ul style="margin-left: 20px; color: var(--text-secondary); line-height: 1.7;">
-                    <li>Файл открыт через <code>file://</code> (нужен <code>http://</code>)</li>
-                    <li>Проблемы с интернет-соединением</li>
-                    <li>CDN jsdelivr.net заблокирован</li>
-                </ul>
-            `;
-
-            const actions = document.getElementById('overlayActions');
-            actions.innerHTML = `
-                <button class="btn btn-demo" id="btnDemoMode2">▶ Демо-режим</button>
-                <button class="btn btn-retry" id="btnRetryLoad2">🔄 Повторить загрузку</button>
-            `;
-
-            document.getElementById('btnDemoMode2').addEventListener('click', enableDemoMode);
-            document.getElementById('btnRetryLoad2').addEventListener('click', () => {
-                hideLoadingOverlay();
-                loadAttempts = 0;
-                initPyodide();
-            });
-
-            if (errorMsg) {
-                const details = document.getElementById('overlayErrorDetails');
-                details.textContent = errorMsg;
-                details.style.display = 'block';
-            }
 
             document.getElementById('loadingOverlay').classList.add('visible');
         }
@@ -966,94 +1068,112 @@ print(result)`
             text.textContent = message;
         }
 
-        function loadPyodideWithTimeout() {
+        function loadPyodideWithTimeout(isSlowMode) {
+            const timeout = isSlowMode ? SLOW_LOAD_TIMEOUT_MS : LOAD_TIMEOUT_MS;
+            const timeoutLabel = isSlowMode ? '5 мин' : '3 мин';
+
             return new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => {
-                    reject(new Error('Таймаут загрузки Pyodide (60 сек).'));
-                }, LOAD_TIMEOUT_MS);
+                const timeoutId = setTimeout(() => {
+                    reject(new Error('Таймаут загрузки Pyodide (' + timeoutLabel + '). Pyodide весит ~50-100 МБ.'));
+                }, timeout);
 
                 try {
                     if (typeof loadPyodide !== 'function') {
-                        clearTimeout(timeout);
+                        clearTimeout(timeoutId);
                         reject(new Error('Функция loadPyodide не найдена. CDN скрипт не загрузился.'));
                         return;
                     }
 
-                    console.log('[Pyodide] Начинаю загрузку...');
+                    addLoadLog('Начинаю загрузку Pyodide v0.24.1...');
+                    addLoadLog('Таймаут: ' + timeoutLabel);
+
                     const promise = loadPyodide({
-                        indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/',
+                        indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/',
                         messageCallback: (msg) => {
-                            console.log('[Pyodide]', msg);
+                            addLoadLog(msg);
                             updateLoadingUI('loading', msg, 50);
                         },
                         errorCallback: (msg) => {
+                            addLoadLog('ERROR: ' + msg);
                             console.warn('[Pyodide ERROR]', msg);
                         }
                     });
 
                     if (promise && typeof promise.then === 'function') {
                         promise.then((instance) => {
-                            clearTimeout(timeout);
+                            clearTimeout(timeoutId);
+                            addLoadLog('✓ Pyodide загружен успешно!');
                             resolve(instance);
                         }).catch((err) => {
-                            clearTimeout(timeout);
+                            clearTimeout(timeoutId);
+                            addLoadLog(' Ошибка: ' + (err.message || String(err)));
                             reject(err);
                         });
                     } else {
-                        clearTimeout(timeout);
+                        clearTimeout(timeoutId);
                         reject(new Error('loadPyodide не вернул Promise'));
                     }
                 } catch (err) {
-                    clearTimeout(timeout);
+                    clearTimeout(timeoutId);
                     reject(err);
                 }
             });
         }
 
-        async function initPyodide() {
+        async function initPyodide(isSlowMode) {
             if (isFileProtocol()) {
                 console.warn('[Pyodide] Обнаружен протокол file://');
                 updateLoadingUI('error');
-                updateStatusBar('error', '️ Открыто через file:// — нужен http://');
+                updateStatusBar('error', '⚠️ Открыто через file:// — нужен http://');
                 showFileProtocolWarning();
                 return;
             }
 
             loadAttempts++;
-            updateLoadingUI('loading', `Загрузка Python... (попытка ${loadAttempts}/${MAX_LOAD_ATTEMPTS})`, 10);
+            loadLogEntries = [];
+            addLoadLog('Попытка загрузки #' + loadAttempts + ' из ' + MAX_LOAD_ATTEMPTS);
+
+            updateLoadingUI('loading', 'Загрузка Python... (попытка ' + loadAttempts + '/' + MAX_LOAD_ATTEMPTS + ')', 10);
             updateStatusBar('warning', 'Загрузка Pyodide...');
 
             if (!checkWebAssemblySupport()) {
                 updateLoadingUI('error');
                 updateStatusBar('error', 'WebAssembly не поддерживается');
-                showLoadErrorOverlay('WebAssembly не поддерживается вашим браузером.');
+                addLoadLog('✗ WebAssembly не поддерживается браузером');
+                showTimeoutOverlay(isSlowMode);
                 return;
             }
 
+            addLoadLog('WebAssembly поддерживается ✓');
+            updateLoadingUI('loading', 'Загрузка Pyodide (~50-100 МБ)... Это может занять 1-3 минуты', 20);
+
             try {
-                updateLoadingUI('loading', 'Загрузка Pyodide (~10 МБ)... 10-30 секунд', 20);
-                pyodide = await loadPyodideWithTimeout();
+                pyodide = await loadPyodideWithTimeout(isSlowMode);
 
                 pyodideReady = true;
                 updateLoadingUI('ready');
-                updateStatusBar('success', 'Python ✓ готов (Pyodide v0.26.4)');
+                updateStatusBar('success', 'Python ✓ готов (Pyodide v0.24.1)');
 
                 document.getElementById('btnRun').disabled = false;
                 document.getElementById('btnDownload').disabled = false;
                 hideLoadingOverlay();
 
+                addLoadLog('Готов к работе!');
                 console.log('[Pyodide] Готов к работе');
             } catch (err) {
                 console.error('[Pyodide] Ошибка загрузки:', err);
                 const errorMsg = err.message || String(err);
+                addLoadLog('✗ ' + errorMsg);
 
                 if (loadAttempts < MAX_LOAD_ATTEMPTS) {
-                    updateLoadingUI('loading', `Ошибка. Повтор через 3 сек...`, 5);
-                    setTimeout(() => initPyodide(), 3000);
+                    const delay = 3000 * loadAttempts;
+                    addLoadLog('Повтор через ' + (delay / 1000) + ' сек...');
+                    updateLoadingUI('loading', 'Ошибка. Повтор через ' + (delay / 1000) + ' сек...', 5);
+                    setTimeout(() => initPyodide(isSlowMode), delay);
                 } else {
                     updateLoadingUI('error');
                     updateStatusBar('error', 'Python ✗ ошибка загрузки');
-                    showLoadErrorOverlay(errorMsg);
+                    showTimeoutOverlay(isSlowMode);
                 }
             }
         }
@@ -1066,15 +1186,12 @@ print(result)`
             document.getElementById('btnDownload').disabled = false;
             clearConsole();
             appendConsole('ℹ️ Демо-режим: Python (Pyodide) недоступен.', 'info');
-            appendConsole('Для полноценной работы откройте через http:// (локальный сервер)', 'info');
+            appendConsole('Для полноценной работы нужно дождаться загрузки Pyodide.', 'info');
+            appendConsole('Pyodide весит ~50-100 МБ и загружается с CDN.', 'info');
         }
 
-        // ==================== EXECUTION ENGINE (ПОЛНОСТЬЮ ПЕРЕПИСАН) ====================
-        // Ключевое исправление: используем __builtins__ вместо builtins,
-        // добавляем try/except на каждом этапе, упрощаем код
+        // ==================== EXECUTION ENGINE ====================
         function getTracePythonCode(userCode) {
-            // Экранируем пользовательский код для безопасной вставки в Python-строку
-            // Используем repr() через JSON, но дополнительно экранируем обратные слэши
             const escapedForPython = userCode
                 .replace(/\\/g, '\\\\')
                 .replace(/'/g, "\\'")
@@ -1083,17 +1200,14 @@ print(result)`
                 .replace(/\t/g, '\\t');
 
             return `
-# -*- coding: utf-8 -*-
 import sys
 import json
 import time
 
-# === Служебные переменные ===
 _steps = []
 _output_lines = []
 _start_time = time.time()
 
-# === Функция безопасного repr ===
 def _sr(val, mx=300):
     try:
         r = repr(val)
@@ -1101,7 +1215,6 @@ def _sr(val, mx=300):
     except Exception:
         return '<err>'
 
-# === Функция получения раскрываемых данных ===
 def _exp(val):
     res = {'e': False, 'c': None, 't': None}
     try:
@@ -1144,7 +1257,6 @@ def _exp(val):
         pass
     return res
 
-# === Фильтрация переменных пользователя ===
 _EXCLUDE = {
     '__builtins__', '__name__', '__doc__', '__package__',
     '__loader__', '__spec__', '__annotations__', '__file__',
@@ -1155,49 +1267,35 @@ _EXCLUDE = {
 }
 
 def _is_uv(name, val):
-    # Исключаем dunder
     if name.startswith('__') and name.endswith('__'):
         return False
-    # Исключаем служебные
     if name in _EXCLUDE:
         return False
-    # Исключаем всё с подчёркиванием
     if name.startswith('_'):
         return False
-    # Исключаем модули
     import types as _t
     if isinstance(val, _t.ModuleType):
         return False
-    # Исключаем функции
     if isinstance(val, (_t.FunctionType, _t.BuiltinFunctionType, _t.MethodType)):
         return False
-    # Исключаем классы/типы
     if isinstance(val, type):
         return False
     return True
 
-# === Trace функция ===
 def _trace_func(frame, event, arg):
     if event == 'call':
         return _trace_func
     elif event == 'return':
         return _trace_func
     elif event == 'line':
-        # Таймаут 10 секунд
         if time.time() - _start_time > 10.0:
             raise Exception("TIMEOUT: Превышено время выполнения (10 секунд)")
-
-        # Максимум 15000 шагов
         if len(_steps) >= 15000:
             raise Exception("STOP: Превышено максимальное количество шагов (15000).")
-
-        # Трассируем только пользовательский код
         if frame.f_code.co_filename != '<user_code>':
             return _trace_func
 
         line_no = frame.f_lineno
-
-        # Собираем переменные
         variables = {}
         try:
             all_vars = {}
@@ -1233,8 +1331,6 @@ def _trace_func(frame, event, arg):
         })
     return _trace_func
 
-# === Перехват print ===
-# ИСПРАВЛЕНИЕ: используем __builtins__ напрямую, а не builtins
 _saved_print = __builtins__['print'] if isinstance(__builtins__, dict) else __builtins__.print
 
 def _custom_print(*args, **kwargs):
@@ -1243,13 +1339,11 @@ def _custom_print(*args, **kwargs):
     line = sep.join(parts)
     _output_lines.append(line)
 
-# Заменяем print
 if isinstance(__builtins__, dict):
     __builtins__['print'] = _custom_print
 else:
     __builtins__.print = _custom_print
 
-# === Выполнение пользовательского кода ===
 try:
     _user_code = '${escapedForPython}'
     sys.settrace(_trace_func)
@@ -1259,13 +1353,11 @@ except Exception as _e:
     sys.settrace(None)
     _output_lines.append("ERROR: " + type(_e).__name__ + ": " + str(_e))
 
-# === Восстанавливаем print ===
 if isinstance(__builtins__, dict):
     __builtins__['print'] = _saved_print
 else:
     __builtins__.print = _saved_print
 
-# === Формируем результат ===
 try:
     _result = json.dumps({
         'steps': _steps,
@@ -1287,7 +1379,7 @@ _result
             if (isRunning) return;
 
             if (!pyodideReady) {
-                appendConsole('⚠️ Python (Pyodide) не загружен. Откройте через http:// или используйте демо-режим.', 'error');
+                appendConsole('⚠️ Python (Pyodide) не загружен. Дождитесь загрузки или используйте демо-режим.', 'error');
                 return;
             }
 
@@ -1331,7 +1423,7 @@ _result
                 displayOutput(result.output || []);
 
                 if (steps.length === 0) {
-                    appendConsole('️ Трассировка не зафиксировала шаги. Код может быть пустым или содержать только комментарии.', 'info');
+                    appendConsole('ℹ️ Трассировка не зафиксировала шаги.', 'info');
                     document.getElementById('stepCounter').textContent = 'Шагов: 0';
                     updateButtonStates('ready');
                 } else {
@@ -1353,7 +1445,7 @@ _result
                 } else if (msg.includes('NameError')) {
                     appendConsole('❌ Ошибка имени: ' + msg, 'error');
                 } else {
-                    appendConsole('❌ Ошибка выполнения: ' + msg, 'error');
+                    appendConsole(' Ошибка выполнения: ' + msg, 'error');
                 }
                 updateButtonStates('ready');
             }
@@ -1455,9 +1547,9 @@ _result
             }
             outputLines.forEach(line => {
                 if (line.startsWith('ERROR:')) {
-                    appendConsole(' ' + line.substring(6), 'error');
+                    appendConsole('❌ ' + line.substring(6), 'error');
                 } else if (line.startsWith('TIMEOUT:')) {
-                    appendConsole('⏱ ' + line.substring(8), 'error');
+                    appendConsole(' ' + line.substring(8), 'error');
                 } else {
                     appendConsole(line, 'output');
                 }
@@ -1679,8 +1771,22 @@ _result
         setupHotkeys();
 
         setTimeout(() => {
-            initPyodide();
+            initPyodide(false);
         }, 300);
     </script>
 </body>
 </html>
+
+
+              <script>
+                              indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/',
+
+indexURL: 'https://unpkg.com/pyodide@0.24.1/full/',
+
+indexURL: 'https://cdn.bootcdn.net/ajax/libs/pyodide/0.24.1/full/',
+
+
+              </script>
+                        </body>
+                        </html>
+                    
