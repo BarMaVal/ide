@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Step-by-Step IDE</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/dracula.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/eclipse.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252526;
+            --bg-tertiary: #2d2d30;
+            --bg-hover: #3e3e42;
+            --text-primary: #d4d4d4;
+            --text-secondary: #858585;
+            --text-bright: #ffffff;
+            --accent: #007acc;
+            --accent-hover: #1c97ea;
+            --border: #3e3e42;
+            --border-light: #4a4a4d;
+            --highlight-line: rgba(0, 122, 204, 0.25);
+            --highlight-line-border: #007acc;
+            --error: #f48771;
+            --error-bg: rgba(244, 135, 113, 0.15);
+            --success: #4ec9b0;
+            --warning: #dcdcaa;
+            --console-bg: #181818;
+            --var-header: #2d2d30;
+            --var-changed: rgba(255, 215, 0, 0.3);
+            --var-new: rgba(78, 201, 176, 0.3);
+            --scrollbar-thumb: #424242;
+            --scrollbar-hover: #4f4f4f;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f3f3f3;
+            --bg-tertiary: #e7e7e7;
+            --bg-hover: #dcdcdc;
+            --text-primary: #1e1e1e;
+            --text-secondary: #616161;
+            --text-bright: #000000;
+            --accent: #0066b8;
+            --accent-hover: #007acc;
+            --border: #c8c8c8;
+            --border-light: #d4d4d4;
+            --highlight-line: rgba(0, 102, 184, 0.15);
+            --highlight-line-border: #0066b8;
+            --error: #cd3131;
+            --error-bg: rgba(205, 49, 49, 0.1);
+            --success: #008000;
+            --warning: #795e26;
+            --console-bg: #f8f8f8;
+            --var-header: #e7e7e7;
+            --var-changed: rgba(255, 200, 0, 0.4);
+            --var-new: rgba(0, 128, 0, 0.2);
+            --scrollbar-thumb: #c1c1c1;
+            --scrollbar-hover: #929292;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            transition: background 0.3s ease, color 0.3s ease;
+            overflow: hidden;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow);
+            height: 48px;
+        }
+
+        .header h1 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-bright);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-right { display: flex; align-items: center; gap: 12px; }
+
+        .loading-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .loading-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent);
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            grid-template-rows: auto 1fr auto;
+            height: calc(100vh - 48px);
+        }
+
+        .editor-section {
+            grid-column: 1;
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            min-width: 0;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .examples-select {
+            padding: 6px 10px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            min-width: 220px;
+        }
+
+        .examples-select:hover { border-color: var(--accent); }
+        .examples-select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent);
+        }
+
+        .toolbar-separator {
+            width: 1px;
+            height: 22px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+
+        .btn {
+            padding: 5px 12px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--bg-hover);
+            border-color: var(--border-light);
+        }
+
+        .btn:active:not(:disabled) { transform: translateY(1px); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-run {
+            background: var(--accent);
+            color: #ffffff;
+            border-color: var(--accent);
+        }
+
+        .btn-run:hover:not(:disabled) {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+
+        .btn-step {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--border);
+        }
+
+        .btn-reset {
+            background: var(--bg-tertiary);
+            color: var(--error);
+            border-color: var(--border);
+        }
+
+        .btn-reset:hover:not(:disabled) {
+            background: var(--error-bg);
+            border-color: var(--error);
+        }
+
+        .btn-download {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--border);
+        }
+
+        .btn-retry {
+            background: var(--accent);
+            color: #ffffff;
+            border-color: var(--accent);
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+
+        .btn-retry:hover { background: var(--accent-hover); }
+
+        .btn-demo {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--border);
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+
+        .btn-demo:hover { background: var(--bg-hover); }
+
+        .step-counter {
+            margin-left: auto;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            background: var(--bg-tertiary);
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .editor-wrapper {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            background: var(--bg-primary);
+        }
+
+        .CodeMirror {
+            height: 100% !important;
+            font-size: 14px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            line-height: 1.5;
+        }
+
+        .CodeMirror-gutters {
+            border-right: 1px solid var(--border) !important;
+            background: var(--bg-secondary) !important;
+        }
+
+        .CodeMirror-linenumber {
+            color: var(--text-secondary) !important;
+            padding: 0 8px !important;
+        }
+
+        [data-theme="dark"] .CodeMirror {
+            background: #1e1e1e !important;
+            color: #d4d4d4 !important;
+        }
+
+        [data-theme="dark"] .CodeMirror-gutters { background: #252526 !important; }
+        [data-theme="dark"] .CodeMirror-cursor { border-left: 1px solid #aeafad !important; }
+        [data-theme="dark"] .CodeMirror-selected { background: #264f78 !important; }
+
+        [data-theme="light"] .CodeMirror {
+            background: #ffffff !important;
+            color: #1e1e1e !important;
+        }
+
+        .current-line-highlight {
+            background: var(--highlight-line) !important;
+            border-left: 3px solid var(--highlight-line-border) !important;
+        }
+
+        .right-panel {
+            grid-column: 2;
+            grid-row: 1 / 4;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border);
+        }
+
+        .panel-header {
+            padding: 10px 14px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .variables-section {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        .variables-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .variables-table th {
+            background: var(--var-header);
+            padding: 7px 10px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-secondary);
+            position: sticky;
+            top: 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            z-index: 1;
+        }
+
+        .variables-table td {
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--border);
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.82rem;
+            vertical-align: top;
+        }
+
+        .variables-table tr.var-row { transition: background 0.3s ease; }
+        .variables-table tr.var-row:hover td { background: var(--bg-hover); }
+
+        .var-name { color: #9cdcfe; font-weight: 600; }
+        [data-theme="light"] .var-name { color: #0070c1; }
+
+        .var-value { color: #ce9178; word-break: break-all; }
+        [data-theme="light"] .var-value { color: #a31515; }
+
+        .var-type {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-style: italic;
+        }
+
+        .expand-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            user-select: none;
+            transition: transform 0.15s ease, color 0.15s ease;
+            margin-right: 4px;
+            border-radius: 3px;
+        }
+
+        .expand-btn:hover {
+            color: var(--accent);
+            background: var(--bg-hover);
+        }
+
+        .expand-btn.expanded { transform: rotate(90deg); }
+
+        .expandable-value { display: inline-flex; align-items: center; }
+
+        .var-children {
+            display: none;
+            margin-top: 4px;
+            padding: 4px 0 4px 8px;
+            border-left: 2px solid var(--border);
+            font-size: 0.78rem;
+        }
+
+        .var-children.visible { display: block; }
+
+        .var-child-row {
+            padding: 2px 0;
+            color: var(--text-primary);
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        .var-child-key { color: #9cdcfe; margin-right: 4px; }
+        [data-theme="light"] .var-child-key { color: #0070c1; }
+
+        .var-child-sep { color: var(--text-secondary); margin: 0 4px; }
+
+        .var-child-value { color: #ce9178; }
+        [data-theme="light"] .var-child-value { color: #a31515; }
+
+        @keyframes flashYellow {
+            0% { background: var(--var-changed); }
+            100% { background: transparent; }
+        }
+
+        @keyframes flashGreen {
+            0% { background: var(--var-new); }
+            100% { background: transparent; }
+        }
+
+        .var-changed td { animation: flashYellow 1s ease-out; }
+        .var-new-row td { animation: flashGreen 1s ease-out; }
+
+        .console-section {
+            grid-column: 1;
+            grid-row: 3;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            max-height: 220px;
+            min-height: 120px;
+        }
+
+        .console-output {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 14px;
+            background: var(--console-bg);
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            line-height: 1.55;
+        }
+
+        .console-line {
+            white-space: pre-wrap;
+            word-break: break-all;
+            padding: 1px 0;
+        }
+
+        .console-line.error { color: var(--error); }
+        .console-line.output { color: var(--text-primary); }
+        .console-line.info { color: var(--text-secondary); font-style: italic; }
+
+        .empty-state {
+            color: var(--text-secondary);
+            font-style: italic;
+            padding: 16px;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+
+        .progress-bar {
+            height: 3px;
+            background: var(--bg-tertiary);
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+            transition: width 0.3s ease;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 48px;
+            left: 0;
+            right: 0;
+            bottom: 22px;
+            background: rgba(30, 30, 30, 0.92);
+            backdrop-filter: blur(6px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .loading-overlay.visible { display: flex; }
+
+        .loading-overlay-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 28px 36px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: var(--shadow);
+        }
+
+        .loading-overlay-content h3 {
+            margin-bottom: 12px;
+            color: var(--text-bright);
+            font-size: 1.2rem;
+        }
+
+        .loading-overlay-content p {
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+            line-height: 1.6;
+            margin-bottom: 14px;
+        }
+
+        .loading-overlay-content strong { color: var(--text-primary); }
+
+        .error-details {
+            background: var(--error-bg);
+            border: 1px solid var(--error);
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 16px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.78rem;
+            color: var(--error);
+            text-align: left;
+            word-break: break-all;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .loading-overlay-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        .protocol-warning {
+            background: linear-gradient(135deg, rgba(244, 135, 113, 0.15), rgba(220, 153, 34, 0.15));
+            border: 1px solid var(--error);
+            border-radius: 6px;
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+
+        .protocol-warning h4 {
+            color: var(--error);
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+
+        .protocol-warning p { margin-bottom: 8px; font-size: 0.88rem; }
+
+        .protocol-warning code {
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
+        .protocol-warning ol {
+            margin-left: 20px;
+            color: var(--text-primary);
+            font-size: 0.88rem;
+            line-height: 1.7;
+        }
+
+        .protocol-warning li { margin-bottom: 4px; }
+
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 22px;
+            background: var(--accent);
+            color: #ffffff;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 16px;
+            z-index: 100;
+        }
+
+        .status-bar.error { background: var(--error); }
+        .status-bar.warning { background: #d29922; }
+        .status-bar.success { background: var(--success); }
+
+        .status-bar-item { display: flex; align-items: center; gap: 4px; }
+
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 5px;
+            border: 2px solid var(--bg-primary);
+        }
+        ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
+
+        @media (max-width: 900px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr auto auto;
+            }
+            .editor-section {
+                grid-column: 1;
+                grid-row: 1 / 3;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                min-height: 280px;
+            }
+            .right-panel {
+                grid-column: 1;
+                grid-row: 3;
+                max-height: 240px;
+                border-left: none;
+                border-top: 1px solid var(--border);
+            }
+            .console-section {
+                grid-column: 1;
+                grid-row: 4;
+            }
+            .examples-select { min-width: 160px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><span>🐍</span><span>Python Step-by-Step IDE</span></h1>
+        <div class="header-right">
+            <div class="loading-indicator" id="loadingIndicator">
+                <div class="loading-spinner"></div>
+                <span id="loadingText">Загрузка Python...</span>
+            </div>
+            <button class="theme-toggle" id="themeToggle" title="Переключить тему"></button>
+        </div>
+    </div>
+
+    <div class="progress-bar">
+        <div class="progress-bar-fill" id="progressBar" style="width: 0%"></div>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-overlay-content">
+            <h3 id="overlayTitle">⚠️ Проблема с загрузкой Python</h3>
+            <div id="overlayBody"></div>
+            <div class="error-details" id="overlayErrorDetails" style="display:none;"></div>
+            <div class="loading-overlay-actions" id="overlayActions"></div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="editor-section">
+            <div class="toolbar">
+                <select class="examples-select" id="examplesSelect" title="Выберите пример кода">
+                    <option value="">📚 Примеры кода...</option>
+                    <option value="for_sum">Цикл for с суммой</option>
+                    <option value="function">Функция с локальными переменными</option>
+                    <option value="list">Работа со списком</option>
+                    <option value="error">Ошибка деления на ноль</option>
+                </select>
+                <div class="toolbar-separator"></div>
+                <button class="btn btn-run" id="btnRun" disabled title="Запустить (F5 / Ctrl+Enter)">▶ Запустить</button>
+                <button class="btn btn-step" id="btnStepForward" disabled title="Шаг вперёд (F10)">⏭ Шаг</button>
+                <button class="btn btn-step" id="btnStepBack" disabled title="Шаг назад (F9)">⏮ Назад</button>
+                <button class="btn btn-reset" id="btnReset" disabled title="Сброс (Ctrl+R)">↺ Сброс</button>
+                <div class="toolbar-separator"></div>
+                <button class="btn btn-download" id="btnDownload" title="Скачать .py">⬇ .py</button>
+                <div class="step-counter" id="stepCounter">Готово к запуску</div>
+            </div>
+            <div class="editor-wrapper">
+                <textarea id="codeEditor"></textarea>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="panel-header"><span>📋</span><span>Переменные</span></div>
+            <div class="variables-section">
+                <table class="variables-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 28%">Имя</th>
+                            <th style="width: 48%">Значение</th>
+                            <th style="width: 24%">Тип</th>
+                        </tr>
+                    </thead>
+                    <tbody id="variablesBody">
+                        <tr><td colspan="3" class="empty-state">Запустите код для просмотра переменных</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="console-section">
+            <div class="panel-header"><span>💻</span><span>Консоль вывода</span></div>
+            <div class="console-output" id="consoleOutput">
+                <div class="empty-state">Вывод появится здесь...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-bar" id="statusBar">
+        <div class="status-bar-item"><span></span><span id="statusPython">Инициализация...</span></div>
+        <div class="status-bar-item"><span>⌨️</span><span>F5: запуск · F10: шаг → · F9: шаг ← · Ctrl+R: сброс</span></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/selection/active-line.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+    <script>
+        // ==================== GLOBAL STATE ====================
+        let pyodide = null;
+        let editor = null;
+        let steps = [];
+        let currentStep = -1;
+        let isRunning = false;
+        let lineMarker = null;
+        let previousVariables = {};
+        let expandedVars = new Set();
+        let pyodideReady = false;
+        let loadAttempts = 0;
+        const MAX_LOAD_ATTEMPTS = 2;
+        const LOAD_TIMEOUT_MS = 60000;
+
+        function isFileProtocol() {
+            return window.location.protocol === 'file:';
+        }
+
+        const EXAMPLES = {
+            for_sum: `summa = 0
+for i in range(1, 6):
+    summa = summa + i
+    print(f"Шаг {i}, сумма = {summa}")
+print(f"Итого: {summa}")`,
+
+            function: `def factorial(n):
+    if n <= 1:
+        return 1
+    result = n * factorial(n - 1)
+    return result
+
+x = 5
+y = factorial(x)
+print(f"{x}! = {y}")`,
+
+            list: `numbers = [3, 1, 4, 1, 5, 9]
+squares = []
+for n in numbers:
+    squares.append(n * n)
+print(f"Квадраты: {squares}")
+print(f"Сумма: {sum(squares)}")`,
+
+            error: `a = 10
+b = 0
+print("Делим...")
+result = a / b
+print(result)`
+        };
+
+        // ==================== THEME ====================
+        function initTheme() {
+            const saved = localStorage.getItem('python-ide-theme');
+            applyTheme(saved || 'dark');
+        }
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            const toggle = document.getElementById('themeToggle');
+            if (toggle) toggle.textContent = theme === 'dark' ? '🌙' : '☀️';
+            if (editor) {
+                editor.setOption('theme', theme === 'dark' ? 'dracula' : 'eclipse');
+            }
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('python-ide-theme', next);
+            applyTheme(next);
+        }
+
+        // ==================== EDITOR ====================
+        function initEditor() {
+            const savedCode = localStorage.getItem('python-ide-code');
+            const defaultCode = savedCode || EXAMPLES.for_sum;
+            const currentTheme = localStorage.getItem('python-ide-theme') || 'dark';
+
+            editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
+                mode: 'python',
+                theme: currentTheme === 'dark' ? 'dracula' : 'eclipse',
+                lineNumbers: true,
+                indentUnit: 4,
+                tabSize: 4,
+                indentWithTabs: false,
+                lineWrapping: false,
+                matchBrackets: true,
+                styleActiveLine: true,
+                extraKeys: {
+                    'Ctrl-Enter': () => { runFullCode(); return false; },
+                    'F5': () => { runFullCode(); return false; },
+                    'F10': () => { stepForward(); return false; },
+                    'F9': () => { stepBackward(); return false; }
+                }
+            });
+
+            editor.setValue(defaultCode);
+            editor.setSize('100%', '100%');
+
+            let saveTimeout = null;
+            editor.on('change', () => {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => {
+                    localStorage.setItem('python-ide-code', editor.getValue());
+                }, 400);
+            });
+        }
+
+        // ==================== PYODIDE INIT ====================
+        function checkWebAssemblySupport() {
+            try {
+                return typeof WebAssembly !== 'undefined' &&
+                       typeof WebAssembly.instantiate === 'function';
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function updateLoadingUI(state, message, progress) {
+            const indicator = document.getElementById('loadingIndicator');
+            const loadingText = document.getElementById('loadingText');
+            const progressBar = document.getElementById('progressBar');
+
+            if (state === 'loading') {
+                indicator.style.display = 'flex';
+                loadingText.textContent = message || 'Загрузка Python...';
+                progressBar.style.width = `${typeof progress === 'number' ? Math.min(95, progress) : 30}%`;
+            } else if (state === 'ready') {
+                indicator.style.display = 'none';
+                progressBar.style.width = '100%';
+                setTimeout(() => { progressBar.style.width = '0%'; }, 800);
+            } else if (state === 'error') {
+                indicator.style.display = 'flex';
+                loadingText.innerHTML = '<span style="color: var(--error)">❌ Ошибка</span>';
+                progressBar.style.width = '0%';
+            }
+        }
+
+        function showFileProtocolWarning() {
+            const body = document.getElementById('overlayBody');
+            body.innerHTML = `
+                <div class="protocol-warning">
+                    <h4>🚫 Файл открыт через file:// — Pyodide не может загрузиться</h4>
+                    <p>Браузеры блокируют загрузку WebAssembly при открытии HTML двойным кликом.</p>
+                    <p><strong>Решение — откройте через локальный HTTP-сервер:</strong></p>
+                    <ol>
+                        <li>Откройте терминал / командную строку</li>
+                        <li>Перейдите в папку с файлом <code>index.html</code></li>
+                        <li>Выполните: <code>python -m http.server 8000</code></li>
+                        <li>Откройте в браузере: <code>http://localhost:8000</code></li>
+                    </ol>
+                    <p style="margin-top: 10px;"><strong>VS Code:</strong> расширение "Live Server" → "Go Live"</p>
+                </div>
+                <p>Или используйте <strong>демо-режим</strong> для ознакомления с интерфейсом.</p>
+            `;
+
+            const actions = document.getElementById('overlayActions');
+            actions.innerHTML = `
+                <button class="btn btn-demo" id="btnDemoMode">▶ Демо-режим</button>
+                <button class="btn btn-retry" id="btnRetryLoad">🔄 Всё равно попробовать</button>
+            `;
+
+            document.getElementById('btnDemoMode').addEventListener('click', enableDemoMode);
+            document.getElementById('btnRetryLoad').addEventListener('click', () => {
+                hideLoadingOverlay();
+                loadAttempts = 0;
+                initPyodide();
+            });
+
+            document.getElementById('loadingOverlay').classList.add('visible');
+        }
+
+        function showLoadErrorOverlay(errorMsg) {
+            const body = document.getElementById('overlayBody');
+            body.innerHTML = `
+                <p>Pyodide не загрузился после ${MAX_LOAD_ATTEMPTS} попыток.</p>
+                <p><strong>Возможные причины:</strong></p>
+                <ul style="margin-left: 20px; color: var(--text-secondary); line-height: 1.7;">
+                    <li>Файл открыт через <code>file://</code> (нужен <code>http://</code>)</li>
+                    <li>Проблемы с интернет-соединением</li>
+                    <li>CDN jsdelivr.net заблокирован</li>
+                </ul>
+            `;
+
+            const actions = document.getElementById('overlayActions');
+            actions.innerHTML = `
+                <button class="btn btn-demo" id="btnDemoMode2">▶ Демо-режим</button>
+                <button class="btn btn-retry" id="btnRetryLoad2">🔄 Повторить загрузку</button>
+            `;
+
+            document.getElementById('btnDemoMode2').addEventListener('click', enableDemoMode);
+            document.getElementById('btnRetryLoad2').addEventListener('click', () => {
+                hideLoadingOverlay();
+                loadAttempts = 0;
+                initPyodide();
+            });
+
+            if (errorMsg) {
+                const details = document.getElementById('overlayErrorDetails');
+                details.textContent = errorMsg;
+                details.style.display = 'block';
+            }
+
+            document.getElementById('loadingOverlay').classList.add('visible');
+        }
+
+        function hideLoadingOverlay() {
+            document.getElementById('loadingOverlay').classList.remove('visible');
+        }
+
+        function updateStatusBar(state, message) {
+            const bar = document.getElementById('statusBar');
+            const text = document.getElementById('statusPython');
+            bar.className = 'status-bar';
+            if (state === 'error') bar.classList.add('error');
+            else if (state === 'warning') bar.classList.add('warning');
+            else if (state === 'success') bar.classList.add('success');
+            text.textContent = message;
+        }
+
+        function loadPyodideWithTimeout() {
+            return new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('Таймаут загрузки Pyodide (60 сек).'));
+                }, LOAD_TIMEOUT_MS);
+
+                try {
+                    if (typeof loadPyodide !== 'function') {
+                        clearTimeout(timeout);
+                        reject(new Error('Функция loadPyodide не найдена. CDN скрипт не загрузился.'));
+                        return;
+                    }
+
+                    console.log('[Pyodide] Начинаю загрузку...');
+                    const promise = loadPyodide({
+                        indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/',
+                        messageCallback: (msg) => {
+                            console.log('[Pyodide]', msg);
+                            updateLoadingUI('loading', msg, 50);
+                        },
+                        errorCallback: (msg) => {
+                            console.warn('[Pyodide ERROR]', msg);
+                        }
+                    });
+
+                    if (promise && typeof promise.then === 'function') {
+                        promise.then((instance) => {
+                            clearTimeout(timeout);
+                            resolve(instance);
+                        }).catch((err) => {
+                            clearTimeout(timeout);
+                            reject(err);
+                        });
+                    } else {
+                        clearTimeout(timeout);
+                        reject(new Error('loadPyodide не вернул Promise'));
+                    }
+                } catch (err) {
+                    clearTimeout(timeout);
+                    reject(err);
+                }
+            });
+        }
+
+        async function initPyodide() {
+            if (isFileProtocol()) {
+                console.warn('[Pyodide] Обнаружен протокол file://');
+                updateLoadingUI('error');
+                updateStatusBar('error', '️ Открыто через file:// — нужен http://');
+                showFileProtocolWarning();
+                return;
+            }
+
+            loadAttempts++;
+            updateLoadingUI('loading', `Загрузка Python... (попытка ${loadAttempts}/${MAX_LOAD_ATTEMPTS})`, 10);
+            updateStatusBar('warning', 'Загрузка Pyodide...');
+
+            if (!checkWebAssemblySupport()) {
+                updateLoadingUI('error');
+                updateStatusBar('error', 'WebAssembly не поддерживается');
+                showLoadErrorOverlay('WebAssembly не поддерживается вашим браузером.');
+                return;
+            }
+
+            try {
+                updateLoadingUI('loading', 'Загрузка Pyodide (~10 МБ)... 10-30 секунд', 20);
+                pyodide = await loadPyodideWithTimeout();
+
+                pyodideReady = true;
+                updateLoadingUI('ready');
+                updateStatusBar('success', 'Python ✓ готов (Pyodide v0.26.4)');
+
+                document.getElementById('btnRun').disabled = false;
+                document.getElementById('btnDownload').disabled = false;
+                hideLoadingOverlay();
+
+                console.log('[Pyodide] Готов к работе');
+            } catch (err) {
+                console.error('[Pyodide] Ошибка загрузки:', err);
+                const errorMsg = err.message || String(err);
+
+                if (loadAttempts < MAX_LOAD_ATTEMPTS) {
+                    updateLoadingUI('loading', `Ошибка. Повтор через 3 сек...`, 5);
+                    setTimeout(() => initPyodide(), 3000);
+                } else {
+                    updateLoadingUI('error');
+                    updateStatusBar('error', 'Python ✗ ошибка загрузки');
+                    showLoadErrorOverlay(errorMsg);
+                }
+            }
+        }
+
+        function enableDemoMode() {
+            hideLoadingOverlay();
+            pyodideReady = false;
+            updateStatusBar('warning', 'Демо-режим (Pyodide недоступен)');
+            document.getElementById('btnRun').disabled = false;
+            document.getElementById('btnDownload').disabled = false;
+            clearConsole();
+            appendConsole('ℹ️ Демо-режим: Python (Pyodide) недоступен.', 'info');
+            appendConsole('Для полноценной работы откройте через http:// (локальный сервер)', 'info');
+        }
+
+        // ==================== EXECUTION ENGINE (ПОЛНОСТЬЮ ПЕРЕПИСАН) ====================
+        // Ключевое исправление: используем __builtins__ вместо builtins,
+        // добавляем try/except на каждом этапе, упрощаем код
+        function getTracePythonCode(userCode) {
+            // Экранируем пользовательский код для безопасной вставки в Python-строку
+            // Используем repr() через JSON, но дополнительно экранируем обратные слэши
+            const escapedForPython = userCode
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/\n/g, '\\n')
+                .replace(/\r/g, '\\r')
+                .replace(/\t/g, '\\t');
+
+            return `
+# -*- coding: utf-8 -*-
+import sys
+import json
+import time
+
+# === Служебные переменные ===
+_steps = []
+_output_lines = []
+_start_time = time.time()
+
+# === Функция безопасного repr ===
+def _sr(val, mx=300):
+    try:
+        r = repr(val)
+        return (r[:mx] + '...') if len(r) > mx else r
+    except Exception:
+        return '<err>'
+
+# === Функция получения раскрываемых данных ===
+def _exp(val):
+    res = {'e': False, 'c': None, 't': None}
+    try:
+        if isinstance(val, (list, tuple)):
+            res['e'] = True
+            res['t'] = 'list' if isinstance(val, list) else 'tuple'
+            items = []
+            for i, v in enumerate(val):
+                items.append({'k': str(i), 'v': _sr(v, 200)})
+                if len(items) >= 100:
+                    items.append({'k': '...', 'v': '(ещё %d)' % (len(val) - 100)})
+                    break
+            res['c'] = items
+        elif isinstance(val, dict):
+            res['e'] = True
+            res['t'] = 'dict'
+            items = []
+            cnt = 0
+            for k, v in val.items():
+                items.append({'k': _sr(k, 50), 'v': _sr(v, 200)})
+                cnt += 1
+                if cnt >= 100:
+                    items.append({'k': '...', 'v': '(много)'})
+                    break
+            res['c'] = items
+        elif isinstance(val, (set, frozenset)):
+            res['e'] = True
+            res['t'] = 'set'
+            items = []
+            try:
+                sv = sorted(val, key=lambda x: str(x))
+            except Exception:
+                sv = list(val)
+            for i, v in enumerate(sv):
+                items.append({'k': str(i), 'v': _sr(v, 200)})
+                if len(items) >= 100:
+                    break
+            res['c'] = items
+    except Exception:
+        pass
+    return res
+
+# === Фильтрация переменных пользователя ===
+_EXCLUDE = {
+    '__builtins__', '__name__', '__doc__', '__package__',
+    '__loader__', '__spec__', '__annotations__', '__file__',
+    '__cached__', '__path__',
+    '_steps', '_output_lines', '_start_time', '_sr', '_exp',
+    '_EXCLUDE', '_is_uv', '_trace_func', '_user_code', '_result',
+    '_saved_print', 'sys', 'json', 'time',
+}
+
+def _is_uv(name, val):
+    # Исключаем dunder
+    if name.startswith('__') and name.endswith('__'):
+        return False
+    # Исключаем служебные
+    if name in _EXCLUDE:
+        return False
+    # Исключаем всё с подчёркиванием
+    if name.startswith('_'):
+        return False
+    # Исключаем модули
+    import types as _t
+    if isinstance(val, _t.ModuleType):
+        return False
+    # Исключаем функции
+    if isinstance(val, (_t.FunctionType, _t.BuiltinFunctionType, _t.MethodType)):
+        return False
+    # Исключаем классы/типы
+    if isinstance(val, type):
+        return False
+    return True
+
+# === Trace функция ===
+def _trace_func(frame, event, arg):
+    if event == 'call':
+        return _trace_func
+    elif event == 'return':
+        return _trace_func
+    elif event == 'line':
+        # Таймаут 10 секунд
+        if time.time() - _start_time > 10.0:
+            raise Exception("TIMEOUT: Превышено время выполнения (10 секунд)")
+
+        # Максимум 15000 шагов
+        if len(_steps) >= 15000:
+            raise Exception("STOP: Превышено максимальное количество шагов (15000).")
+
+        # Трассируем только пользовательский код
+        if frame.f_code.co_filename != '<user_code>':
+            return _trace_func
+
+        line_no = frame.f_lineno
+
+        # Собираем переменные
+        variables = {}
+        try:
+            all_vars = {}
+            all_vars.update(frame.f_globals)
+            all_vars.update(frame.f_locals)
+
+            for name, val in all_vars.items():
+                if not _is_uv(name, val):
+                    continue
+                try:
+                    e = _exp(val)
+                    variables[name] = {
+                        'value': _sr(val, 300),
+                        'type': type(val).__name__,
+                        'expandable': e['e'],
+                        'children': e['c'],
+                        'child_type': e['t']
+                    }
+                except Exception:
+                    variables[name] = {
+                        'value': '<error>',
+                        'type': 'unknown',
+                        'expandable': False,
+                        'children': None,
+                        'child_type': None
+                    }
+        except Exception:
+            pass
+
+        _steps.append({
+            'line': line_no,
+            'variables': variables
+        })
+    return _trace_func
+
+# === Перехват print ===
+# ИСПРАВЛЕНИЕ: используем __builtins__ напрямую, а не builtins
+_saved_print = __builtins__['print'] if isinstance(__builtins__, dict) else __builtins__.print
+
+def _custom_print(*args, **kwargs):
+    parts = [str(a) for a in args]
+    sep = kwargs.get('sep', ' ')
+    line = sep.join(parts)
+    _output_lines.append(line)
+
+# Заменяем print
+if isinstance(__builtins__, dict):
+    __builtins__['print'] = _custom_print
+else:
+    __builtins__.print = _custom_print
+
+# === Выполнение пользовательского кода ===
+try:
+    _user_code = '${escapedForPython}'
+    sys.settrace(_trace_func)
+    exec(compile(_user_code, '<user_code>', 'exec'))
+    sys.settrace(None)
+except Exception as _e:
+    sys.settrace(None)
+    _output_lines.append("ERROR: " + type(_e).__name__ + ": " + str(_e))
+
+# === Восстанавливаем print ===
+if isinstance(__builtins__, dict):
+    __builtins__['print'] = _saved_print
+else:
+    __builtins__.print = _saved_print
+
+# === Формируем результат ===
+try:
+    _result = json.dumps({
+        'steps': _steps,
+        'output': _output_lines,
+        'step_count': len(_steps)
+    }, ensure_ascii=False)
+except Exception as _e:
+    _result = json.dumps({
+        'steps': [],
+        'output': ['ERROR: Сериализация: ' + str(_e)],
+        'step_count': 0
+    }, ensure_ascii=False)
+
+_result
+`;
+        }
+
+        async function runFullCode() {
+            if (isRunning) return;
+
+            if (!pyodideReady) {
+                appendConsole('⚠️ Python (Pyodide) не загружен. Откройте через http:// или используйте демо-режим.', 'error');
+                return;
+            }
+
+            const userCode = editor.getValue().trim();
+            if (!userCode) {
+                appendConsole('ℹ️ Редактор пуст. Введите код для выполнения.', 'info');
+                return;
+            }
+
+            isRunning = true;
+            clearConsole();
+            clearVariables();
+            clearLineHighlight();
+            previousVariables = {};
+            expandedVars = new Set();
+
+            updateButtonStates('running');
+            appendConsole('▶ Выполнение кода...', 'info');
+
+            try {
+                const traceCode = getTracePythonCode(userCode);
+                console.log('[Execute] Запуск кода, длина Python-скрипта:', traceCode.length);
+
+                const resultStr = await pyodide.runPythonAsync(traceCode);
+
+                if (!resultStr || typeof resultStr !== 'string') {
+                    throw new Error('Pyodide вернул пустой или некорректный результат');
+                }
+
+                let result;
+                try {
+                    result = JSON.parse(resultStr);
+                } catch (parseErr) {
+                    console.error('[Execute] Ошибка парсинга JSON:', resultStr.substring(0, 500));
+                    throw new Error('Не удалось распарсить результат от Python: ' + parseErr.message);
+                }
+
+                steps = result.steps || [];
+                currentStep = -1;
+
+                displayOutput(result.output || []);
+
+                if (steps.length === 0) {
+                    appendConsole('️ Трассировка не зафиксировала шаги. Код может быть пустым или содержать только комментарии.', 'info');
+                    document.getElementById('stepCounter').textContent = 'Шагов: 0';
+                    updateButtonStates('ready');
+                } else {
+                    updateButtonStates('stepped');
+                    updateStepCounter();
+                    stepForward();
+                }
+
+            } catch (err) {
+                const msg = err.message || String(err);
+                console.error('[Execution error]:', err);
+
+                if (msg.includes('TIMEOUT') || msg.includes('10 секунд')) {
+                    appendConsole('⏱ Превышено время выполнения (10 секунд).', 'error');
+                } else if (msg.includes('SyntaxError')) {
+                    appendConsole('❌ Синтаксическая ошибка: ' + msg, 'error');
+                } else if (msg.includes('STOP') || msg.includes('15000')) {
+                    appendConsole('⚠️ Превышено максимальное количество шагов.', 'error');
+                } else if (msg.includes('NameError')) {
+                    appendConsole('❌ Ошибка имени: ' + msg, 'error');
+                } else {
+                    appendConsole('❌ Ошибка выполнения: ' + msg, 'error');
+                }
+                updateButtonStates('ready');
+            }
+
+            isRunning = false;
+        }
+
+        function stepForward() {
+            if (steps.length === 0 || currentStep >= steps.length - 1) return;
+
+            previousVariables = currentStep >= 0 ? (steps[currentStep].variables || {}) : {};
+            currentStep++;
+            const step = steps[currentStep];
+
+            highlightLine(step.line);
+            displayVariables(step.variables, previousVariables);
+
+            document.getElementById('btnStepBack').disabled = currentStep <= 0;
+            document.getElementById('btnStepForward').disabled = currentStep >= steps.length - 1;
+
+            updateStepCounter();
+        }
+
+        function stepBackward() {
+            if (currentStep <= 0) return;
+
+            previousVariables = steps[currentStep].variables || {};
+            currentStep--;
+            const step = steps[currentStep];
+
+            highlightLine(step.line);
+            displayVariables(step.variables, previousVariables);
+
+            document.getElementById('btnStepBack').disabled = currentStep <= 0;
+            document.getElementById('btnStepForward').disabled = false;
+
+            updateStepCounter();
+        }
+
+        function resetExecution() {
+            steps = [];
+            currentStep = -1;
+            previousVariables = {};
+            expandedVars = new Set();
+            clearConsole();
+            clearVariables();
+            clearLineHighlight();
+
+            updateButtonStates('ready');
+            document.getElementById('stepCounter').textContent = 'Готово к запуску';
+            document.getElementById('progressBar').style.width = '0%';
+        }
+
+        function updateButtonStates(state) {
+            const btnRun = document.getElementById('btnRun');
+            const btnStepForward = document.getElementById('btnStepForward');
+            const btnStepBack = document.getElementById('btnStepBack');
+            const btnReset = document.getElementById('btnReset');
+
+            if (state === 'ready') {
+                btnRun.disabled = !pyodideReady;
+                btnStepForward.disabled = true;
+                btnStepBack.disabled = true;
+                btnReset.disabled = true;
+            } else if (state === 'running') {
+                btnRun.disabled = true;
+                btnStepForward.disabled = true;
+                btnStepBack.disabled = true;
+                btnReset.disabled = true;
+            } else if (state === 'stepped') {
+                btnRun.disabled = !pyodideReady;
+                btnStepForward.disabled = steps.length === 0;
+                btnStepBack.disabled = currentStep <= 0;
+                btnReset.disabled = false;
+            }
+        }
+
+        // ==================== UI UPDATES ====================
+        function highlightLine(lineNo) {
+            clearLineHighlight();
+            if (lineNo > 0 && lineNo <= editor.lineCount()) {
+                lineMarker = editor.addLineClass(lineNo - 1, 'background', 'current-line-highlight');
+                editor.scrollIntoView({ line: lineNo - 1, ch: 0 }, 100);
+            }
+        }
+
+        function clearLineHighlight() {
+            if (lineMarker !== null) {
+                editor.removeLineClass(lineMarker, 'background', 'current-line-highlight');
+                lineMarker = null;
+            }
+        }
+
+        function displayOutput(outputLines) {
+            clearConsole();
+            if (!outputLines || outputLines.length === 0) {
+                appendConsole('(нет вывода)', 'info');
+                return;
+            }
+            outputLines.forEach(line => {
+                if (line.startsWith('ERROR:')) {
+                    appendConsole(' ' + line.substring(6), 'error');
+                } else if (line.startsWith('TIMEOUT:')) {
+                    appendConsole('⏱ ' + line.substring(8), 'error');
+                } else {
+                    appendConsole(line, 'output');
+                }
+            });
+        }
+
+        function displayVariables(variables, prevVars) {
+            const tbody = document.getElementById('variablesBody');
+            prevVars = prevVars || {};
+            const keys = Object.keys(variables);
+
+            if (keys.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Нет переменных на этом шаге</td></tr>';
+                return;
+            }
+
+            let html = '';
+            keys.sort().forEach(name => {
+                const v = variables[name];
+                const prev = prevVars[name];
+
+                let rowClass = 'var-row';
+                if (!prev) {
+                    rowClass = 'var-row var-new-row';
+                } else if (prev.value !== v.value) {
+                    rowClass = 'var-row var-changed';
+                }
+
+                const isExpanded = expandedVars.has(name);
+                const expandable = v.expandable && v.children && v.children.length > 0;
+
+                html += '<tr class="' + rowClass + '" data-varname="' + escapeHtml(name) + '">' +
+                    '<td class="var-name">' + escapeHtml(name) + '</td>' +
+                    '<td class="var-value">' +
+                        '<div class="expandable-value">' +
+                            (expandable ? '<span class="expand-btn ' + (isExpanded ? 'expanded' : '') + '" data-varname="' + escapeHtml(name) + '" title="Раскрыть">▶</span>' : '') +
+                            '<span>' + escapeHtml(v.value) + '</span>' +
+                        '</div>' +
+                        (expandable ? '<div class="var-children ' + (isExpanded ? 'visible' : '') + '" data-varname="' + escapeHtml(name) + '">' + renderChildren(v) + '</div>' : '') +
+                    '</td>' +
+                    '<td class="var-type">' + escapeHtml(v.type) + '</td>' +
+                '</tr>';
+            });
+            tbody.innerHTML = html;
+
+            tbody.querySelectorAll('.expand-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleExpand(btn.getAttribute('data-varname'));
+                });
+            });
+        }
+
+        function renderChildren(v) {
+            if (!v.children) return '';
+            const childType = v.child_type;
+            let html = '';
+            v.children.forEach(child => {
+                if (childType === 'dict') {
+                    html += '<div class="var-child-row">' +
+                        '<span class="var-child-key">' + escapeHtml(child.k) + '</span>' +
+                        '<span class="var-child-sep">:</span>' +
+                        '<span class="var-child-value">' + escapeHtml(child.v) + '</span>' +
+                    '</div>';
+                } else {
+                    html += '<div class="var-child-row">' +
+                        '<span class="var-child-key">[' + escapeHtml(child.k) + ']</span>' +
+                        '<span class="var-child-sep">=</span>' +
+                        '<span class="var-child-value">' + escapeHtml(child.v) + '</span>' +
+                    '</div>';
+                }
+            });
+            return html;
+        }
+
+        function toggleExpand(varName) {
+            if (expandedVars.has(varName)) {
+                expandedVars.delete(varName);
+            } else {
+                expandedVars.add(varName);
+            }
+            if (currentStep >= 0 && currentStep < steps.length) {
+                const step = steps[currentStep];
+                const tbody = document.getElementById('variablesBody');
+                const prevClasses = {};
+                tbody.querySelectorAll('.var-row').forEach(row => {
+                    const name = row.getAttribute('data-varname');
+                    prevClasses[name] = row.className;
+                });
+
+                displayVariables(step.variables, previousVariables);
+
+                tbody.querySelectorAll('.var-row').forEach(row => {
+                    const name = row.getAttribute('data-varname');
+                    if (prevClasses[name]) {
+                        row.classList.remove('var-changed', 'var-new-row');
+                    }
+                });
+            }
+        }
+
+        function clearVariables() {
+            document.getElementById('variablesBody').innerHTML =
+                '<tr><td colspan="3" class="empty-state">Запустите код для просмотра переменных</td></tr>';
+        }
+
+        function clearConsole() {
+            document.getElementById('consoleOutput').innerHTML = '';
+        }
+
+        function appendConsole(text, type) {
+            const output = document.getElementById('consoleOutput');
+            const line = document.createElement('div');
+            line.className = 'console-line ' + type;
+            line.textContent = text;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function updateStepCounter() {
+            const counter = document.getElementById('stepCounter');
+            const progress = document.getElementById('progressBar');
+
+            if (steps.length === 0) {
+                counter.textContent = 'Готово к запуску';
+                progress.style.width = '0%';
+                return;
+            }
+
+            if (currentStep < 0) {
+                counter.textContent = 'Шаг 0 из ' + steps.length;
+                progress.style.width = '0%';
+            } else {
+                counter.textContent = 'Шаг ' + (currentStep + 1) + ' из ' + steps.length;
+                progress.style.width = (((currentStep + 1) / steps.length) * 100) + '%';
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ==================== EXAMPLES & DOWNLOAD ====================
+        function loadExample(key) {
+            if (!key || !EXAMPLES[key]) return;
+            const confirmed = steps.length > 0
+                ? confirm('Загрузка примера сбросит текущее выполнение. Продолжить?')
+                : true;
+            if (!confirmed) {
+                document.getElementById('examplesSelect').value = '';
+                return;
+            }
+            editor.setValue(EXAMPLES[key]);
+            localStorage.setItem('python-ide-code', EXAMPLES[key]);
+            resetExecution();
+        }
+
+        function downloadPy() {
+            const code = editor.getValue();
+            const blob = new Blob([code], { type: 'text/x-python;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'code.py';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // ==================== HOTKEYS ====================
+        function setupHotkeys() {
+            document.addEventListener('keydown', (e) => {
+                const tag = e.target.tagName;
+                if (tag === 'INPUT' || tag === 'SELECT') return;
+                if (tag === 'TEXTAREA' && editor && e.target === editor.getInputField()) {
+                    return;
+                }
+
+                if (e.key === 'F5') {
+                    e.preventDefault();
+                    runFullCode();
+                } else if (e.key === 'F10') {
+                    e.preventDefault();
+                    stepForward();
+                } else if (e.key === 'F9') {
+                    e.preventDefault();
+                    stepBackward();
+                } else if (e.ctrlKey && (e.key === 'r' || e.key === 'R')) {
+                    e.preventDefault();
+                    resetExecution();
+                } else if (e.ctrlKey && e.key === 'Enter') {
+                    e.preventDefault();
+                    runFullCode();
+                }
+            });
+        }
+
+        // ==================== EVENT LISTENERS ====================
+        document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+        document.getElementById('btnRun').addEventListener('click', runFullCode);
+        document.getElementById('btnStepForward').addEventListener('click', stepForward);
+        document.getElementById('btnStepBack').addEventListener('click', stepBackward);
+        document.getElementById('btnReset').addEventListener('click', resetExecution);
+        document.getElementById('btnDownload').addEventListener('click', downloadPy);
+
+        document.getElementById('examplesSelect').addEventListener('change', (e) => {
+            loadExample(e.target.value);
+            setTimeout(() => {
+                document.getElementById('examplesSelect').value = '';
+            }, 100);
+        });
+
+        // ==================== INITIALIZATION ====================
+        initTheme();
+        initEditor();
+        setupHotkeys();
+
+        setTimeout(() => {
+            initPyodide();
+        }, 300);
+    </script>
+</body>
+</html>
